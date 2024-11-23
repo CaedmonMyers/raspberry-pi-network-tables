@@ -2,6 +2,7 @@
 
 from networktables import NetworkTables
 import time
+import tkinter as tk
 from threading import Thread
 
 nt_ip = "10.12.9.2"
@@ -23,17 +24,46 @@ while not NetworkTables.isConnected():
 print("Connected!")
 
 
-# Diagnostics and Shuffleboard tables don't work yet. I got the SmartDaswhboard to work with this code
-table = NetworkTables.getTable("Diagnostics")
 smartdashboard = NetworkTables.getTable("SmartDashboard")
-shuffleboard = NetworkTables.getTable("Shuffleboard")
+
+motorSpeed = 0.0
+robotStatus = ""
+
+root = tk.Tk()
+root.title("Robot Info")
+
+motorSpeedLabel = tk.Label(root, text="Motor Speed: 0", font=("Arial", 50))
+motorSpeedLabel.pack(pady=10)
+
+robotStatusLabel = tk.Label(root, text="Robot Status: 0", font=("Arial", 50))
+robotStatusLabel.pack(pady=10)
+
 
 def value_changed(table, key, value, is_new):
     print(f"Table: {table.getPath()}, Key: {key}, Value: {value}, Is new: {is_new}")
+    if key == "Status":
+        #robotStatus = value
+        robotStatusLabel.config(text=f"Robot Status: {value}")
+    
+    elif key == "Motor Speed":
+        #motorSpeed = value
+        motorSpeedLabel.config(text=f"Motor Speed: {value}")
 
-table.addEntryListener(value_changed)
+
+def update_gui():
+    pass
+    #motorSpeedLabel.config(text=f"Motor Speed: {motorSpeed}")
+    #robotStatusLabel.config(text=f"Robot Status: {robotStatus}")
+
+    root.after(100, update_gui)
+
+def start_gui():
+    root.after(100, update_gui)
+    root.mainloop()
+
+Thread(target=start_gui, daemon=True).start()
+
 smartdashboard.addEntryListener(value_changed)
-shuffleboard.addEntryListener(value_changed)
 
 def print_keys():
     while True:
@@ -42,23 +72,34 @@ def print_keys():
             #print(f"Smartdashboard keys: {smartdashboard.getKeys}")
 
 
+def networktables_thread():
+    try:
+        print("Listening for updates. Ctrl+C to stop.")
+        while True:
+            if not NetworkTables.isConnected():
+                print("Lost connection. Waiting to reconnect...")
+                while not NetworkTables.isConnected():
+                    time.sleep(1)
+                
+                print("Reconnected...")
+
+            time.sleep(0.1)
+
+    except KeyboardInterrupt:
+        print("Exiting...")
+
+
 Thread(target=print_keys, daemon=True).start()
 
-try:
-    print("Listening for updates. Ctrl+C to stop.")
-    while True:
-        if not NetworkTables.isConnected():
-            print("Lost connection. Waiting to reconnect...")
-            while not NetworkTables.isConnected():
-                time.sleep(1)
-            
-            print("Reconnected...")
+Thread(target=networktables_thread, daemon=True)
 
-        time.sleep(0.1)
 
-except KeyboardInterrupt:
-    print("Exiting...")
+start_gui()
 
+
+
+
+# Bunch of old code and stuff
 '''
 import threading
 from networktables import NetworkTables
