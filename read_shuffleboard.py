@@ -18,17 +18,14 @@ INFO_FONT = ("Arial", 50, "bold")
 TITLE_FONT = ("Arial", 20)
 
 def closeWindow():
-    #NetworkTables.stopClient()
     root.attributes("-fullscreen", False)
-    #time.sleep(2)
-    #root.destroy()
-
+    time.sleep(2)
+    root.destroy()
 
 def create_label(parent, text, font, row, column):
     label = tk.Label(parent, text=text, font=font, bg="#1C1C1C", fg="white")
     label.grid(row=row, column=column, padx=5, pady=5, ipadx=5, ipady=5, sticky="nsew")
     return label
-
 
 def create_circular_meter(parent, row, column, percent=0):
     canvas = tk.Canvas(parent, width=GRID_CELL_SIZE, height=GRID_CELL_SIZE, bg="#1C1C1C", highlightthickness=0)
@@ -38,7 +35,6 @@ def create_circular_meter(parent, row, column, percent=0):
     canvas.create_arc(10, 10, size, size, start=90, extent=-3.6 * percent, fill="#00FF00", outline="")
     canvas.create_text(size // 2, size // 2, text=f"{percent}%", font=INFO_FONT, fill="white")
     return canvas
-
 
 def create_horizontal_meter(parent, row, column, percent=0):
     frame = tk.Frame(parent, bg="#1C1C1C")
@@ -51,7 +47,6 @@ def create_horizontal_meter(parent, row, column, percent=0):
     canvas.create_rectangle(0, 0, percent * width / 100, height, fill="#00FF00", outline="")
     canvas.create_text(width // 2, height // 2, text=f"{percent}%", font=TITLE_FONT, fill="white")
     return frame
-
 
 motorSpeedLabel = create_label(root, "Motor Speed: 0", INFO_FONT, row=0, column=0)
 robotStatusLabel = create_label(root, "Robot Status: Inactive", INFO_FONT, row=0, column=1)
@@ -68,30 +63,16 @@ close_button.pack(side="top", fill="x", padx=5, pady=5)
 terminate_button = tk.Button(button_frame, text="Terminate Program", command=sys.exit, font=TITLE_FONT, bg="#DC143C", fg="white")
 terminate_button.pack(side="top", fill="x", padx=5, pady=5)
 
-
-def update_gui():
-    root.after(100, update_gui)
-
-
-def start_gui():
-    root.after(100, update_gui)
-    root.mainloop()
-
-
-#Thread(target=start_gui, daemon=True).start()
-start_gui()
+# NetworkTables setup
 nt_ip = "10.12.9.2"
-
 
 def connectionListener(connected, info):
     print(info, '; Connected=%s' % connected)
-
 
 NetworkTables.initialize(server=nt_ip)
 print(f"Initializing Connection to {nt_ip}")
 
 NetworkTables.addConnectionListener(connectionListener, immediateNotify=True)
-
 
 while not NetworkTables.isConnected():
     print("Waiting for connection...")
@@ -99,44 +80,48 @@ while not NetworkTables.isConnected():
 
 print("Connected!")
 
-
 smartdashboard = NetworkTables.getTable("SmartDashboard")
 
-
+# Update function
 def value_changed(table, key, value, is_new):
     if key == "Motor Speed":
         motorSpeedLabel.config(text=f"Motor Speed: {value}")
+        # Update circular meter
         circularMeter.children["!canvas"].delete("all")
         create_circular_meter(root, row=1, column=0, percent=int(value))
+        # Update horizontal meter
         horizontalMeter.children["!canvas"].delete("all")
         create_horizontal_meter(root, row=1, column=1, percent=int(value))
 
     elif key == "Status":
         robotStatusLabel.config(text=f"Robot Status: {value}")
 
-
+# Adding listener to update values
 smartdashboard.addEntryListener(value_changed)
 
+# GUI update function
+def update_gui():
+    root.after(100, update_gui)
 
-def print_keys():
-    while True:
-        if NetworkTables.isConnected():
-            pass
+def start_gui():
+    root.after(100, update_gui)
+    root.mainloop()
 
+Thread(target=start_gui, daemon=True).start()
 
+# Listening to NetworkTables in a separate thread
 def networktables_thread():
     try:
         while True:
             if not NetworkTables.isConnected():
+                print("Lost connection. Waiting to reconnect...")
                 while not NetworkTables.isConnected():
                     time.sleep(1)
-
+                print("Reconnected...")
             time.sleep(0.1)
-
     except KeyboardInterrupt:
-        pass
+        print("Exiting...")
 
+Thread(target=networktables_thread, daemon=True).start()
 
-Thread(target=print_keys, daemon=True).start()
-
-Thread(target=networktables_thread, daemon=True)
+start_gui()
