@@ -9,50 +9,57 @@ root.title("Robot Info")
 root.attributes("-fullscreen", True)
 root.configure(background='black')
 
-# Screen dimensions for grid layout
+# Screen dimensions and grid cell size
 SCREEN_WIDTH = root.winfo_screenwidth()
-SCREEN_HEIGHT = root.winfo_screenheight()
 GRID_CELL_SIZE = SCREEN_WIDTH // 5
+GRID_CELL_HEIGHT = GRID_CELL_SIZE
 
 INFO_FONT = ("Arial", 50, "bold")
-TITLE_FONT = ("Arial", 20)
+TITLE_FONT = ("Arial", 30)
+GREEN_COLOR = "#00FF00"
 
 def closeWindow():
     root.attributes("-fullscreen", False)
     time.sleep(2)
     root.destroy()
 
-def create_label(parent, text, font, row, column):
-    label = tk.Label(parent, text=text, font=font, bg="#1C1C1C", fg="white")
-    label.grid(row=row, column=column, padx=5, pady=5, ipadx=5, ipady=5, sticky="nsew")
+def create_title_label(parent, text, row, column):
+    label = tk.Label(parent, text=text, font=TITLE_FONT, bg="#1C1C1C", fg=GREEN_COLOR)
+    label.grid(row=row, column=column, columnspan=1, pady=10, sticky="n")
     return label
 
 def create_circular_meter(parent, row, column, percent=0):
-    canvas = tk.Canvas(parent, width=GRID_CELL_SIZE, height=GRID_CELL_SIZE, bg="#1C1C1C", highlightthickness=0)
-    canvas.grid(row=row, column=column, padx=5, pady=5, sticky="nsew")
+    canvas = tk.Canvas(parent, width=GRID_CELL_SIZE, height=GRID_CELL_HEIGHT, bg="#1C1C1C", highlightthickness=0)
+    canvas.grid(row=row, column=column, padx=10, pady=10, sticky="nsew")
     size = GRID_CELL_SIZE - 20
     canvas.create_oval(10, 10, size, size, outline="white", width=2)
     canvas.create_arc(10, 10, size, size, start=90, extent=-3.6 * percent, fill="#00FF00", outline="")
-    canvas.create_text(size // 2, size // 2, text=f"{percent}%", font=INFO_FONT, fill="white")
     return canvas
 
 def create_horizontal_meter(parent, row, column, percent=0):
-    frame = tk.Frame(parent, bg="#1C1C1C")
-    frame.grid(row=row, column=column, padx=5, pady=5, sticky="nsew")
-    width = GRID_CELL_SIZE - 40
-    height = 40
-    canvas = tk.Canvas(frame, width=width, height=height, bg="#1C1C1C", highlightthickness=0)
+    frame = tk.Frame(parent, bg="#1C1C1C", width=GRID_CELL_SIZE, height=GRID_CELL_HEIGHT)
+    frame.grid(row=row, column=column, padx=10, pady=10, sticky="nsew")
+    frame.grid_propagate(False)
+
+    percent_label = tk.Label(frame, text=f"{percent}%", font=INFO_FONT, bg="#1C1C1C", fg=GREEN_COLOR)
+    percent_label.pack(pady=10)
+
+    bar_width = GRID_CELL_SIZE - 40
+    bar_height = 40
+    canvas = tk.Canvas(frame, width=bar_width, height=bar_height, bg="#1C1C1C", highlightthickness=0)
     canvas.pack()
-    canvas.create_rectangle(0, 0, width, height, outline="white", width=2)
-    canvas.create_rectangle(0, 0, percent * width / 100, height, fill="#00FF00", outline="")
-    canvas.create_text(width // 2, height // 2, text=f"{percent}%", font=TITLE_FONT, fill="white")
-    return frame
+    canvas.create_rectangle(0, 0, bar_width, bar_height, outline="white", width=2)
+    canvas.create_rectangle(0, 0, percent * bar_width / 100, bar_height, fill="#00FF00", outline="")
+    return frame, percent_label
 
-motorSpeedLabel = create_label(root, "Motor Speed: 0", INFO_FONT, row=0, column=0)
-robotStatusLabel = create_label(root, "Robot Status: Inactive", INFO_FONT, row=0, column=1)
+motorTitle = create_title_label(root, "Motor Speed", row=0, column=0)
+motorSpeedLabel = create_label(root, "", INFO_FONT, row=1, column=0)
 
-circularMeter = create_circular_meter(root, row=1, column=0, percent=0)
-horizontalMeter = create_horizontal_meter(root, row=1, column=1, percent=0)
+statusTitle = create_title_label(root, "Robot Status", row=0, column=1)
+robotStatusLabel = create_label(root, "Inactive", INFO_FONT, row=1, column=1)
+
+circularMeter = create_circular_meter(root, row=2, column=0, percent=0)
+horizontalMeter, percentLabel = create_horizontal_meter(root, row=2, column=1, percent=0)
 
 button_frame = tk.Frame(root, bg="#1C1C1C")
 button_frame.grid(row=0, column=4, padx=5, pady=5, sticky="ne")
@@ -85,13 +92,17 @@ smartdashboard = NetworkTables.getTable("SmartDashboard")
 # Update function
 def value_changed(table, key, value, is_new):
     if key == "Motor Speed":
+        abs_percent = abs(value) * 100  # Convert motor speed to absolute percentage
         motorSpeedLabel.config(text=f"Motor Speed: {value}")
+        percentLabel.config(text=f"{int(abs_percent)}%")
+
         # Update circular meter
-        circularMeter.children["!canvas"].delete("all")
-        create_circular_meter(root, row=1, column=0, percent=int(value))
+        circularMeter.delete("all")
+        create_circular_meter(root, row=2, column=0, percent=int(abs_percent))
+
         # Update horizontal meter
         horizontalMeter.children["!canvas"].delete("all")
-        create_horizontal_meter(root, row=1, column=1, percent=int(value))
+        create_horizontal_meter(root, row=2, column=1, percent=int(abs_percent))
 
     elif key == "Status":
         robotStatusLabel.config(text=f"Robot Status: {value}")
